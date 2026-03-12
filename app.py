@@ -1,11 +1,11 @@
 import os
-import requests as http_requests
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from dotenv import load_dotenv
 from datetime import datetime
 from sqlalchemy import text, inspect as sa_inspect
+from twilio.rest import Client
 
 load_dotenv()
 
@@ -88,34 +88,52 @@ def get_setting(key, default=None):
     s = Settings.query.filter_by(key=key).first()
     return s.value if s else default
 
-def send_sms_fast2sms(phone_number, message):
-    api_key = os.getenv('FAST2SMS_API_KEY', '')
-    if not api_key:
-        print("FAST2SMS_API_KEY not set")
+def send_sms_twilio(phone_number, message):
+    account_sid = os.getenv('TWILIO_ACCOUNT_SID', '')
+    auth_token = os.getenv('TWILIO_AUTH_TOKEN', '')
+    from_number = os.getenv('TWILIO_FROM_NUMBER', '')
+    if not account_sid or not auth_token or not from_number:
+        print("TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER not set")
         return False
-    # Normalize: strip country code, keep last 10 digits
-    number = str(phone_number).strip().lstrip('+')
-    if number.startswith('91') and len(number) == 12:
-        number = number[2:]
-    url = "https://www.fast2sms.com/dev/bulkV2"
-    headers = {"authorization": api_key, "Content-Type": "application/json"}
-    payload = {
-        "route": "q",
-        "message": message,
-        "language": "english",
-        "flash": 0,
-        "numbers": number
-    }
+
+    raw = str(phone_number).strip()
+    digits = ''.join(ch for ch in raw if ch.isdigit())
+    if raw.startswith('+') and digits:
+        to_number = f"+{digits}"
+    elif len(digits) == 10:
+        to_number = f"+91{digits}"
+    elif len(digits) == 12 and digits.startswith('91'):
+        to_number = f"+{digits}"
+    else:
+        print(f"Invalid phone number for Twilio: {phone_number}")
+        return False
+
     try:
-        resp = http_requests.post(url, json=payload, headers=headers, timeout=10)
-        result = resp.json()
-        print(f"Fast2SMS response: {result}")
-        return result.get('return', False)
+        client = Client(account_sid, auth_token)
+        sms = client.messages.create(
+            body=message,
+            from_=from_number,
+            to=to_number,
+        )
+        print(f"Twilio SMS sent: sid={sms.sid}, to={to_number}")
+        return True
     except Exception as e:
-        print(f"Fast2SMS error: {e}")
+        print(f"Twilio error: {e}")
         return False
 
 # --- API Routes ---
+@app.route('/', methods=['GET'])
+def root():
+    return jsonify({
+        'service': 'TN Election API',
+        'status': 'ok',
+        'endpoints': ['/api/survey', '/api/admin/login', '/api/reports', '/api/surveys', '/api/districts']
+    })
+
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({'status': 'ok'})
+
 @app.route('/api/survey', methods=['POST'])
 def create_survey():
     try:
@@ -267,7 +285,7 @@ def missed_call_webhook():
             return jsonify({'error': 'app_url not configured in settings'}), 500
 
         message = sms_template.replace('{link}', app_url)
-        success = send_sms_fast2sms(caller_id, message)
+        success = send_sms_twilio(caller_id, message)
         return jsonify({'success': success, 'caller': caller_id})
     except Exception as e:
         print(f"Webhook error: {e}")

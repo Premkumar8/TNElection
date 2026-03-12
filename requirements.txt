@@ -3,6 +3,6 @@ Flask-SQLAlchemy
 SQLAlchemy
 flask-cors
 python-dotenv
-requests
 psycopg2-binary
 gunicorn
+twilio
