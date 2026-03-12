@@ -198,16 +198,12 @@ const SurveyForm = () => {
   ];
 
   const parties = [
-    { name: "DMK", symbol: "☀️" },
-    { name: "AIADMK", symbol: "🍃" },
-    { name: "TVK", symbol: "🐘" }, // Using elephant as placeholder for TVK
-    { name: "BJP", symbol: "🪷" },
-    { name: "NTK", symbol: "👨‍🌾" },
-    { name: "MNM", symbol: "🔦" },
-    { name: "காங்கிரஸ்", symbol: "✋" },
-    { name: "PMK", symbol: "🥭" },
-    { name: "மற்றவர்", symbol: "🗳️" },
-    { name: "முடிவில்லை", symbol: "🤔" }
+    { id: "bjp_alliance", name: "பாஜக + அதிமுக + பாமக" },
+    { id: "dmk_alliance", name: "திமுக + காங்கிரஸ் + மக்கள் நீதி மய்யம்" },
+    { id: "tvk", name: "தமிழக வெற்றிக் கழகம்" },
+    { id: "ntk", name: "நாம் தமிழர் கட்சி" },
+    { id: "others", name: "மற்றவர்கள்" },
+    { id: "undecided", name: "முடிவு செய்யவில்லை" }
   ];
 
   return (
@@ -346,10 +342,10 @@ const SurveyForm = () => {
                   1. கடந்த தேர்தலில் யாருக்கு வாக்களித்தீர்கள்? *
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {parties.filter(p => p.name !== "TVK").map((party) => (
+                  {parties.filter(p => p.id !== "tvk").map((party) => (
                     <label
                       key={`last-${party.name}`}
-                      className={`cursor-pointer p-3 border rounded-xl text-center transition-all flex flex-col items-center justify-center gap-2 ${
+                      className={`cursor-pointer p-3 border rounded-xl text-center transition-all ${
                         formData.lastVoted === party.name
                           ? "border-orange-500 bg-orange-50 text-orange-700 font-medium shadow-sm"
                           : "border-gray-200 hover:border-orange-300 hover:bg-gray-50"
@@ -363,7 +359,6 @@ const SurveyForm = () => {
                         onChange={handleChange}
                         className="hidden"
                       />
-                      <span className="text-2xl">{party.symbol}</span>
                       <span className="text-sm font-medium">{party.name}</span>
                     </label>
                   ))}
@@ -378,7 +373,7 @@ const SurveyForm = () => {
                       {parties.map((party) => (
                         <label
                           key={`this-${party.name}`}
-                          className={`cursor-pointer p-3 border rounded-xl text-center transition-all flex flex-col items-center justify-center gap-2 ${
+                          className={`cursor-pointer p-3 border rounded-xl text-center transition-all ${
                             formData.thisTimeVote === party.name
                               ? "border-green-500 bg-green-50 text-green-700 font-medium shadow-sm"
                               : "border-gray-200 hover:border-green-300 hover:bg-gray-50"
@@ -392,8 +387,7 @@ const SurveyForm = () => {
                             onChange={handleChange}
                             className="hidden"
                           />
-                          <span className="text-2xl">{party.symbol}</span>
-                          <span className="text-sm font-medium">{party.name}</span>
+                              <span className="text-sm font-medium">{party.name}</span>
                         </label>
                       ))}
                     </div>
@@ -404,10 +398,10 @@ const SurveyForm = () => {
                       3. வரவிருக்கும் தேர்தலில் யார் வெல்வார்கள் என்று நினைக்கிறீர்கள்? *
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {parties.filter(p => p.name !== "Undecided").map((party) => (
+                      {parties.filter(p => p.id !== "undecided").map((party) => (
                         <label
                           key={`win-${party.name}`}
-                          className={`cursor-pointer p-3 border rounded-xl text-center transition-all flex flex-col items-center justify-center gap-2 ${
+                          className={`cursor-pointer p-3 border rounded-xl text-center transition-all ${
                             formData.whoWillWin === party.name
                               ? "border-blue-500 bg-blue-50 text-blue-700 font-medium shadow-sm"
                               : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
@@ -421,8 +415,7 @@ const SurveyForm = () => {
                             onChange={handleChange}
                             className="hidden"
                           />
-                          <span className="text-2xl">{party.symbol}</span>
-                          <span className="text-sm font-medium">{party.name}</span>
+                              <span className="text-sm font-medium">{party.name}</span>
                         </label>
                       ))}
                     </div>
@@ -441,28 +434,61 @@ const SurveyForm = () => {
               </div>
 
               {(() => {
-                const ratingOptions = [
-                  { value: "ரொம்ப நல்லா இருக்கு", emoji: "😊" },
-                  { value: "ஓரளவு இருக்கு", emoji: "😐" },
-                  { value: "ரொம்ப மோசம்", emoji: "😞" },
-                  { value: "கருத்து இல்ல", emoji: "🤷" },
-                ];
-
-                const feedbackQuestions: { label: string; name: keyof typeof formData }[] = [
-                  { label: "1. உங்கள் தற்போதைய MLA உங்கள் பகுதிக்கு என்ன செய்தார்?", name: "mlaWork" },
-                  { label: "2. இந்த தேர்தலுக்கு பிறகு மாற்றம் வருமா?", name: "expectedChanges" },
-                  { label: "3. உங்கள் பகுதியில் சட்டம் ஒழுங்கு எப்படி இருக்கு?", name: "lawAndOrder" },
-                  { label: "4. உங்கள் பகுதியில் மது / போதை பொருள் பயன்பாடு எப்படி இருக்கு?", name: "drugUsage" },
+                const feedbackQuestions: {
+                  label: string;
+                  name: keyof typeof formData;
+                  options: { value: string; emoji: string }[];
+                }[] = [
+                  {
+                    label: "1. உங்கள் தற்போதைய MLA உங்கள் பகுதிக்கு என்ன செய்தார்?",
+                    name: "mlaWork",
+                    options: [
+                      { value: "மிகவும் நன்றாக செய்தார்", emoji: "😊" },
+                      { value: "ஓரளவு செய்தார்", emoji: "🙂" },
+                      { value: "செய்யவில்லை / திருப்தி இல்லை", emoji: "😕" },
+                      { value: "கருத்து இல்லை", emoji: "🤷" },
+                    ],
+                  },
+                  {
+                    label: "2. இந்த தேர்தலுக்கு பிறகு மாற்றம் வருமா?",
+                    name: "expectedChanges",
+                    options: [
+                      { value: "நிச்சயம் மாற்றம் வரும்", emoji: "😄" },
+                      { value: "ஓரளவு மாற்றம் வரும்", emoji: "🙂" },
+                      { value: "மாற்றம் வராது", emoji: "😐" },
+                      { value: "தெரியவில்லை", emoji: "🤔" },
+                    ],
+                  },
+                  {
+                    label: "3. உங்கள் பகுதியில் சட்டம் ஒழுங்கு எப்படி இருக்கு?",
+                    name: "lawAndOrder",
+                    options: [
+                      { value: "மிகவும் நல்ல நிலையில் உள்ளது", emoji: "😊" },
+                      { value: "சாதாரணமாக உள்ளது", emoji: "😐" },
+                      { value: "மோசமாக உள்ளது", emoji: "😟" },
+                      { value: "கருத்து இல்லை", emoji: "🤷" },
+                    ],
+                  },
+                  {
+                    label: "4. உங்கள் பகுதியில் மது / போதை பொருள் பயன்பாடு எப்படி இருக்கு?",
+                    name: "drugUsage",
+                    options: [
+                      { value: "மிகவும் குறைவாக உள்ளது", emoji: "😊" },
+                      { value: "ஓரளவு உள்ளது", emoji: "😐" },
+                      { value: "அதிகமாக உள்ளது", emoji: "😟" },
+                      { value: "தெரியவில்லை", emoji: "🤔" },
+                    ],
+                  },
                 ];
 
                 return feedbackQuestions.map((q) => (
                   <div key={q.name} className="space-y-3">
                     <label className="text-base font-medium text-gray-800 block">{q.label} *</label>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {ratingOptions.map((opt) => (
+                      {q.options.map((opt) => (
                         <label
                           key={opt.value}
-                          className={`cursor-pointer p-3 border rounded-xl text-center transition-all flex flex-col items-center justify-center gap-2 ${
+                          className={`cursor-pointer p-3 border rounded-xl text-center transition-all ${
                             formData[q.name] === opt.value
                               ? "border-green-500 bg-green-50 text-green-700 font-medium shadow-sm"
                               : "border-gray-200 hover:border-green-300 hover:bg-gray-50"

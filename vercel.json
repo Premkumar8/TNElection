@@ -1,0 +1,20 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://YOUR-APP-NAME.onrender.com/api/:path*"
+    },
+    {
+      "source": "/webhook/:path*",
+      "destination": "https://YOUR-APP-NAME.onrender.com/webhook/:path*"
+    },
+    {
+      "source": "/admin",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/admin/:path*",
+      "destination": "/index.html"
+    }
+  ]
+}
