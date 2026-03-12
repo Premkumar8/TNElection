@@ -8,3 +8,12 @@ coverage/
 !.env.example
 
 /src/generated/prisma
+
+# Python virtual environments and cache
+venv/
+.venv/
+env/
+ENV/
+__pycache__/
+*.pyc
+*.pyo
