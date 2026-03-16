@@ -36,9 +36,24 @@ class Survey(db.Model):
     drug_usage = db.Column(db.String(100), nullable=False)
     additional_notes = db.Column(db.Text, nullable=True)
     area_problems = db.Column(db.Text, nullable=True)
+    planning_to_vote = db.Column(db.String(50), nullable=True)
+    knows_candidates = db.Column(db.String(50), nullable=True)
+    biggest_issue = db.Column(db.String(100), nullable=True)
+    biggest_issue_other = db.Column(db.String(255), nullable=True)
+    government_performance = db.Column(db.String(50), nullable=True)
+    candidate_quality = db.Column(db.String(100), nullable=True)
+    manifesto_priority = db.Column(db.String(100), nullable=True)
+    mla_immediate_problem = db.Column(db.Text, nullable=True)
+    governance_improvements = db.Column(db.Text, nullable=True)
+    website_usefulness = db.Column(db.String(50), nullable=True)
+    platform_features = db.Column(db.Text, nullable=True)
+    homepage_poll_issue = db.Column(db.String(100), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
+        biggest_issue_display = self.biggest_issue
+        if biggest_issue_display == 'Other' and self.biggest_issue_other:
+            biggest_issue_display = f"Other: {self.biggest_issue_other}"
         return {
             'id': self.id,
             'name': self.name,
@@ -55,6 +70,19 @@ class Survey(db.Model):
             'drugUsage': self.drug_usage,
             'additionalNotes': self.additional_notes,
             'areaProblems': self.area_problems,
+            'planningToVote': self.planning_to_vote or self.last_voted,
+            'knowsCandidates': self.knows_candidates or self.this_time_vote,
+            'biggestIssue': self.biggest_issue or self.who_will_win,
+            'biggestIssueOther': self.biggest_issue_other,
+            'biggestIssueDisplay': biggest_issue_display or self.biggest_issue or self.who_will_win,
+            'governmentPerformance': self.government_performance or self.mla_work,
+            'candidateQuality': self.candidate_quality or self.expected_changes,
+            'manifestoPriority': self.manifesto_priority or self.law_and_order,
+            'mlaImmediateProblem': self.mla_immediate_problem or self.area_problems,
+            'governanceImprovements': self.governance_improvements or self.additional_notes,
+            'websiteUsefulness': self.website_usefulness or self.drug_usage,
+            'platformFeatures': self.platform_features,
+            'homepagePollIssue': self.homepage_poll_issue,
             'createdAt': self.created_at.isoformat()
         }
 
@@ -72,12 +100,28 @@ class Settings(db.Model):
 with app.app_context():
     try:
         db.create_all()
-        # Migration: add area_problems column if not exists
         inspector = sa_inspect(db.engine)
         columns = [c['name'] for c in inspector.get_columns('survey')]
-        if 'area_problems' not in columns:
+        column_definitions = {
+            'area_problems': 'TEXT',
+            'planning_to_vote': 'VARCHAR(50)',
+            'knows_candidates': 'VARCHAR(50)',
+            'biggest_issue': 'VARCHAR(100)',
+            'biggest_issue_other': 'VARCHAR(255)',
+            'government_performance': 'VARCHAR(50)',
+            'candidate_quality': 'VARCHAR(100)',
+            'manifesto_priority': 'VARCHAR(100)',
+            'mla_immediate_problem': 'TEXT',
+            'governance_improvements': 'TEXT',
+            'website_usefulness': 'VARCHAR(50)',
+            'platform_features': 'TEXT',
+            'homepage_poll_issue': 'VARCHAR(100)',
+        }
+        missing_columns = [name for name in column_definitions if name not in columns]
+        if missing_columns:
             with db.engine.connect() as conn:
-                conn.execute(text('ALTER TABLE survey ADD COLUMN area_problems TEXT'))
+                for column_name in missing_columns:
+                    conn.execute(text(f"ALTER TABLE survey ADD COLUMN {column_name} {column_definitions[column_name]}"))
                 conn.commit()
     except Exception as e:
         print(f"Error creating tables: {e}")
@@ -139,10 +183,19 @@ def create_survey():
     try:
         data = request.json
         
-        required_fields = ['name', 'area', 'gender', 'ageCategory', 'district']
+        required_fields = [
+            'name', 'area', 'gender', 'ageCategory', 'district', 'planningToVote',
+            'knowsCandidates', 'biggestIssue', 'governmentPerformance',
+            'candidateQuality', 'manifestoPriority', 'mlaImmediateProblem',
+            'governanceImprovements', 'websiteUsefulness', 'platformFeatures',
+            'homepagePollIssue'
+        ]
         for field in required_fields:
             if not data.get(field):
                 return jsonify({'error': f'Missing required field: {field}'}), 400
+
+        if data.get('biggestIssue') == 'Other' and not data.get('biggestIssueOther'):
+            return jsonify({'error': 'Missing required field: biggestIssueOther'}), 400
 
         survey = Survey(
             name=data.get('name'),
@@ -150,15 +203,27 @@ def create_survey():
             gender=data.get('gender'),
             age_category=data.get('ageCategory'),
             district=data.get('district'),
-            last_voted=data.get('lastVoted'),
-            this_time_vote=data.get('thisTimeVote'),
-            who_will_win=data.get('whoWillWin'),
-            mla_work=data.get('mlaWork'),
-            expected_changes=data.get('expectedChanges'),
-            law_and_order=data.get('lawAndOrder'),
-            drug_usage=data.get('drugUsage'),
-            additional_notes=data.get('additionalNotes'),
-            area_problems=data.get('areaProblems')
+            last_voted=data.get('planningToVote'),
+            this_time_vote=data.get('knowsCandidates'),
+            who_will_win=data.get('biggestIssue'),
+            mla_work=data.get('governmentPerformance'),
+            expected_changes=data.get('candidateQuality'),
+            law_and_order=data.get('manifestoPriority'),
+            drug_usage=data.get('websiteUsefulness'),
+            additional_notes=data.get('governanceImprovements'),
+            area_problems=data.get('mlaImmediateProblem'),
+            planning_to_vote=data.get('planningToVote'),
+            knows_candidates=data.get('knowsCandidates'),
+            biggest_issue=data.get('biggestIssue'),
+            biggest_issue_other=data.get('biggestIssueOther'),
+            government_performance=data.get('governmentPerformance'),
+            candidate_quality=data.get('candidateQuality'),
+            manifesto_priority=data.get('manifestoPriority'),
+            mla_immediate_problem=data.get('mlaImmediateProblem'),
+            governance_improvements=data.get('governanceImprovements'),
+            website_usefulness=data.get('websiteUsefulness'),
+            platform_features=data.get('platformFeatures'),
+            homepage_poll_issue=data.get('homepagePollIssue')
         )
 
         db.session.add(survey)
@@ -235,24 +300,27 @@ def get_reports():
 
         def get_stats(column):
             results = apply_filters(db.session.query(column, db.func.count(column))).group_by(column).all()
-            return [{'name': label, 'value': count} for label, count in results]
+            return [{'name': label, 'value': count} for label, count in results if label]
 
         by_gender = get_stats(Survey.gender)
         by_age = get_stats(Survey.age_category)
         by_district = get_stats(Survey.district)
-        by_party = get_stats(Survey.this_time_vote)
-        win_prediction = get_stats(Survey.who_will_win)
-
-        problem_counts = {}
-        for survey in apply_filters(Survey.query).filter(Survey.area_problems != None).all():
-            if survey.area_problems:
-                for problem in survey.area_problems.split(','):
-                    problem = problem.strip()
-                    if problem:
-                        problem_counts[problem] = problem_counts.get(problem, 0) + 1
-        problem_breakdown = sorted(
-            [{'name': k, 'value': v} for k, v in problem_counts.items()],
-            key=lambda x: -x['value']
+        by_planning_to_vote = get_stats(Survey.planning_to_vote)
+        by_government_performance = get_stats(Survey.government_performance)
+        by_website_usefulness = get_stats(Survey.website_usefulness)
+        by_homepage_poll = get_stats(Survey.homepage_poll_issue)
+        by_biggest_issue = []
+        issue_counts = {}
+        for survey in apply_filters(Survey.query).all():
+            label = survey.biggest_issue
+            if not label:
+                continue
+            if label == 'Other' and survey.biggest_issue_other:
+                label = f"Other: {survey.biggest_issue_other}"
+            issue_counts[label] = issue_counts.get(label, 0) + 1
+        by_biggest_issue = sorted(
+            [{'name': name, 'value': count} for name, count in issue_counts.items()],
+            key=lambda item: (-item['value'], item['name'])
         )
 
         return jsonify({
@@ -260,9 +328,11 @@ def get_reports():
             'byGender': by_gender,
             'byAge': by_age,
             'byDistrict': by_district,
-            'byParty': by_party,
-            'winPrediction': win_prediction,
-            'problemBreakdown': problem_breakdown
+            'byPlanningToVote': by_planning_to_vote,
+            'byBiggestIssue': by_biggest_issue,
+            'byGovernmentPerformance': by_government_performance,
+            'byWebsiteUsefulness': by_website_usefulness,
+            'byHomepagePoll': by_homepage_poll
         })
     except Exception as e:
         print(f"Error fetching reports: {e}")
