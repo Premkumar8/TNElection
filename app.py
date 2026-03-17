@@ -192,10 +192,10 @@ def create_survey():
         ]
         for field in required_fields:
             if not data.get(field):
-                return jsonify({'error': f'Missing required field: {field}'}), 400
+                return jsonify({'error': f'தேவையான புலம் இல்லை: {field}'}), 400
 
-        if data.get('biggestIssue') == 'Other' and not data.get('biggestIssueOther'):
-            return jsonify({'error': 'Missing required field: biggestIssueOther'}), 400
+        if data.get('biggestIssue') in ['Other', 'மற்றவை'] and not data.get('biggestIssueOther'):
+            return jsonify({'error': 'தேவையான புலம் இல்லை: biggestIssueOther'}), 400
 
         survey = Survey(
             name=data.get('name'),
@@ -233,7 +233,7 @@ def create_survey():
     except Exception as e:
         db.session.rollback()
         print(f"Error saving survey: {e}")
-        return jsonify({'error': 'Failed to save survey'}), 500
+        return jsonify({'error': 'கணக்கெடுப்பை சேமிக்க முடியவில்லை'}), 500
 
 @app.route('/api/admin/login', methods=['POST'])
 def admin_login():
@@ -247,10 +247,10 @@ def admin_login():
         if admin and admin.password == password:
             return jsonify({'success': True, 'token': 'admin-token-123'})
         else:
-            return jsonify({'error': 'Invalid credentials'}), 401
+            return jsonify({'error': 'தவறான உள்நுழைவு விவரங்கள்'}), 401
     except Exception as e:
         print(f"Error admin login: {e}")
-        return jsonify({'error': 'Failed to login'}), 500
+        return jsonify({'error': 'உள்நுழைய முடியவில்லை'}), 500
 
 def apply_filters(query):
     district = request.args.get('district')
@@ -290,7 +290,7 @@ def get_surveys():
         })
     except Exception as e:
         print(f"Error fetching surveys: {e}")
-        return jsonify({'error': 'Failed to fetch surveys'}), 500
+        return jsonify({'error': 'கணக்கெடுப்பு பதிவுகளை பெற முடியவில்லை'}), 500
 
 @app.route('/api/reports', methods=['GET'])
 def get_reports():
@@ -315,8 +315,8 @@ def get_reports():
             label = survey.biggest_issue
             if not label:
                 continue
-            if label == 'Other' and survey.biggest_issue_other:
-                label = f"Other: {survey.biggest_issue_other}"
+            if label in ['Other', 'மற்றவை'] and survey.biggest_issue_other:
+                label = f"மற்றவை: {survey.biggest_issue_other}"
             issue_counts[label] = issue_counts.get(label, 0) + 1
         by_biggest_issue = sorted(
             [{'name': name, 'value': count} for name, count in issue_counts.items()],
@@ -336,7 +336,7 @@ def get_reports():
         })
     except Exception as e:
         print(f"Error fetching reports: {e}")
-        return jsonify({'error': 'Failed to fetch reports'}), 500
+        return jsonify({'error': 'அறிக்கைகளை பெற முடியவில்லை'}), 500
 
 @app.route('/webhook/missed-call', methods=['GET', 'POST'])
 def missed_call_webhook():
@@ -345,14 +345,14 @@ def missed_call_webhook():
         data = request.form if request.form else request.args
         caller_id = data.get('caller_id') or data.get('mobile_no') or data.get('CallerNumber') or ''
         if not caller_id:
-            return jsonify({'error': 'No caller_id'}), 400
+            return jsonify({'error': 'caller_id இல்லை'}), 400
 
         app_url = get_setting('app_url', '')
         sms_template = get_setting('sms_message',
             'Thank you for calling! Please share your feedback here: {link}')
 
         if not app_url:
-            return jsonify({'error': 'app_url not configured in settings'}), 500
+            return jsonify({'error': 'settings-இல் app_url அமைக்கப்படவில்லை'}), 500
 
         message = sms_template.replace('{link}', app_url)
         success = send_sms_twilio(caller_id, message)

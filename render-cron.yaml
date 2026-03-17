@@ -1,0 +1,19 @@
+services:
+  - type: cron
+    name: tn-election-service-check
+    runtime: python
+    plan: starter
+    schedule: "*/15 * * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/render_restart_service.py
+    envVars:
+      - key: RENDER_API_KEY
+        sync: false
+      - key: TARGET_SERVICE_ID
+        sync: false
+      - key: TARGET_SERVICE_URL
+        sync: false
+      - key: RESTART_MODE
+        value: on_failure
+      - key: HEALTH_TIMEOUT_SECONDS
+        value: "20"
