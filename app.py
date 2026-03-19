@@ -1,5 +1,5 @@
-import os
-from flask import Flask, request, jsonify
+﻿import os
+from flask import Flask, request, jsonify, Response
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -18,6 +18,9 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+
+DEFAULT_PUBLIC_APP_URL = 'https://tn-election.vercel.app/'
+DEFAULT_SMS_TEMPLATE = 'Thank you for your call. Please share your feedback here: {link}'
 
 # Models
 class Survey(db.Model):
@@ -132,6 +135,15 @@ def get_setting(key, default=None):
     s = Settings.query.filter_by(key=key).first()
     return s.value if s else default
 
+def get_public_app_url():
+    configured_url = get_setting('app_url', '') or os.getenv('APP_URL', '') or DEFAULT_PUBLIC_APP_URL
+    return configured_url.strip()
+
+def build_survey_sms_message():
+    sms_template = (get_setting('sms_message', '') or os.getenv('SMS_TEMPLATE', '') or DEFAULT_SMS_TEMPLATE).strip()
+    app_url = get_public_app_url()
+    return sms_template.replace('{link}', app_url), app_url
+
 def send_sms_twilio(phone_number, message):
     account_sid = os.getenv('TWILIO_ACCOUNT_SID', '')
     auth_token = os.getenv('TWILIO_AUTH_TOKEN', '')
@@ -171,7 +183,15 @@ def root():
     return jsonify({
         'service': 'TN Election API',
         'status': 'ok',
-        'endpoints': ['/api/survey', '/api/admin/login', '/api/reports', '/api/surveys', '/api/districts']
+        'endpoints': [
+            '/api/survey',
+            '/api/admin/login',
+            '/api/reports',
+            '/api/surveys',
+            '/api/districts',
+            '/webhook/missed-call',
+            '/webhook/twilio/voice',
+        ]
     })
 
 @app.route('/health', methods=['GET'])
@@ -340,26 +360,33 @@ def get_reports():
 
 @app.route('/webhook/missed-call', methods=['GET', 'POST'])
 def missed_call_webhook():
-    """Servetel missed call webhook — called when someone calls the virtual number."""
+    """Provider-agnostic missed-call webhook for sending SMS survey link."""
     try:
-        data = request.form if request.form else request.args
-        caller_id = data.get('caller_id') or data.get('mobile_no') or data.get('CallerNumber') or ''
+        data = request.values
+        caller_id = data.get('caller_id') or data.get('mobile_no') or data.get('CallerNumber') or data.get('From') or ''
         if not caller_id:
-            return jsonify({'error': 'caller_id இல்லை'}), 400
+            return jsonify({'error': 'caller_id not found'}), 400
 
-        app_url = get_setting('app_url', '')
-        sms_template = get_setting('sms_message',
-            'Thank you for calling! Please share your feedback here: {link}')
-
-        if not app_url:
-            return jsonify({'error': 'settings-இல் app_url அமைக்கப்படவில்லை'}), 500
-
-        message = sms_template.replace('{link}', app_url)
+        message, app_url = build_survey_sms_message()
         success = send_sms_twilio(caller_id, message)
-        return jsonify({'success': success, 'caller': caller_id})
+        return jsonify({'success': success, 'caller': caller_id, 'link': app_url})
     except Exception as e:
         print(f"Webhook error: {e}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/webhook/twilio/voice', methods=['GET', 'POST'])
+def twilio_voice_webhook():
+    """Twilio Voice webhook: send the survey link by SMS and end the call."""
+    try:
+        caller_id = request.values.get('From') or request.values.get('caller_id') or ''
+        if caller_id:
+            message, _ = build_survey_sms_message()
+            send_sms_twilio(caller_id, message)
+    except Exception as e:
+        print(f"Twilio voice webhook error: {e}")
+
+    twiml = '<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>'
+    return Response(twiml, mimetype='text/xml')
 
 @app.route('/api/admin/settings', methods=['GET'])
 def get_settings():
@@ -387,3 +414,4 @@ def update_settings():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
+
